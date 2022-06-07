@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -48,6 +49,7 @@ var sPref: SharedPreferences? = null
 val POSTION = "Postiion"
 val MSG = "Message"
 val DONE = "Done"
+val INDEX = "Index"
 var message = ""
 var contacts = HashMap<String, String>()
 var copyContacts = HashMap<String, String>()
@@ -59,6 +61,8 @@ class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        contacts.clear()
+        copyContacts.clear()
         sPref = getSharedPreferences("WhatsAppContacts", Context.MODE_PRIVATE)
         message = sPref!!.getString(MSG, " ")!!
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_CONTACTS)
@@ -157,7 +161,7 @@ class MainActivity : ComponentActivity() {
 
 
                                 var contact = Contact(name, number)
-                                if (doneList?.indexOf(contact) == -1) {
+                                if (doneList == null || doneList.indexOf(contact) == -1) {
                                     contacts[name] = number
                                 }
                                 Log.i(TAG, " WhatsApp contact id  :  $id")
@@ -176,6 +180,7 @@ class MainActivity : ComponentActivity() {
         for (contact in contacts.entries) {
             contactsList.add(Contact(contact.key, contact.value))
         }
+        contactsList.sortBy { contact -> contact.name }
         number = contactsList.size
         Log.i(TAG, " WhatsApp contact size :  " + contactsList.size)
         return contactsList
@@ -201,6 +206,7 @@ class MainActivity : ComponentActivity() {
         savePosition()
         super.onDestroy()
     }
+
 }
 
 class TextFieldState() {
@@ -212,14 +218,14 @@ class SearchState() {
 }
 
 class ContactsState(activity: MainActivity) {
-    var contacts: MutableList<Contact> by mutableStateOf(activity.getContacts().toMutableList())
+    var contacts = mutableStateListOf<Contact>()
 }
 
 class FabState() {
     var action: String by mutableStateOf("Search")
 }
 
-class NumState(){
+class NumState() {
     var num: Int by mutableStateOf(0)
 }
 
@@ -244,6 +250,10 @@ fun main(activity: MainActivity) {
     var numState = remember {
         NumState()
     }
+
+    var list = activity.getContacts()
+    contactsState.contacts.clear()
+    contactsState.contacts.addAll(list)
 
     if (contactsState.contacts.size > 0) {
         numState.num = contactsState.contacts.size
@@ -281,7 +291,8 @@ fun main(activity: MainActivity) {
                 Spacer(modifier = Modifier.width(Dp(10f)))
                 Button(onClick = {
                     sPref!!.edit().putString(DONE, "").apply()
-                    contactsState.contacts  = activity.getContacts().toMutableList()
+                    contactsState.contacts.clear()
+                    contactsState.contacts.addAll(activity.getContacts())
                 }) {
                     Text(
                         modifier = Modifier
@@ -305,7 +316,12 @@ fun main(activity: MainActivity) {
                 }) {
                 Text(text = fabState.action)
             }*/
-            Text(text = "$numState.num Contacts")
+            Text(
+                modifier = Modifier
+                    .padding(2.dp)
+                    .align(CenterHorizontally),
+                text = "${numState.num} Contacts"
+            )
             if (openDialog.value) {
                 Dialog(onDismissRequest = { /*TODO*/ }) {
                     Column(
@@ -341,7 +357,12 @@ fun main(activity: MainActivity) {
                         SearchTextField(searchState)
                         Row(modifier = Modifier.width(IntrinsicSize.Max)) {
                             Button(onClick = {
-                                contactsState.contacts = filter(searchState.text, contactsState)
+                                contactsState.contacts.addAll(
+                                    filter(
+                                        searchState.text,
+                                        contactsState
+                                    )
+                                )
                                 fabState.action = "Go Back"
                                 openSearch.value = false
                             }) {
@@ -363,17 +384,32 @@ fun main(activity: MainActivity) {
             ) {
                 itemsIndexed(contactsState.contacts) { index, item ->
                     ContactItem(
-                        contactsState,
-                        activity,
                         name = item.name,
                         number = item.number,
-                        index
+                        onClick = {
+                            var tempList = sPref?.getString(DONE, "")
+                            var doneList = Gson()
+                                .fromJson(tempList, Array<Contact>::class.java)
+                                ?.toList()
+                                ?.toMutableList()
+                            if (doneList == null) {
+                                doneList = ArrayList<Contact>()
+                            }
+                            doneList.add(Contact(item.name, item.number))
+                            sPref!!
+                                .edit()
+                                .putString(DONE, Gson().toJson(doneList))
+                                .commit()
+                            sPref!!.edit().putInt(INDEX,index).apply()
+                            activity.sendMessage(item.number)
+                        }
                     )
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun MessageTextField(state: TextFieldState) {
@@ -410,33 +446,16 @@ fun SearchTextField(state: SearchState) {
 @OptIn(ExperimentalUnitApi::class)
 @Composable
 fun ContactItem(
-    state: ContactsState,
-    activity: MainActivity,
     name: String,
     number: String,
-    index: Int
+    onClick: () -> Unit
 ) {
     Column() {
         Spacer(modifier = Modifier.height(Dp(5f)))
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable {
-                    activity.sendMessage(number)
-                    var contact = Contact(name, number)
-                    var tempList = sPref?.getString(DONE, "")
-                    var doneList = Gson()
-                        .fromJson(tempList, Array<Contact>::class.java)
-                        .toList()
-                        .toMutableList()
-                    doneList.add(Contact(name, number))
-                    sPref!!
-                        .edit()
-                        .putString(DONE, Gson().toJson(doneList))
-                        .apply()
-                    var ind = state.contacts.indexOf(contact)
-                    state.contacts.removeAt(ind)
-                },
+                .clickable { onClick() },
             shape = RoundedCornerShape(10.dp),
             elevation = Dp(5f),
             border = BorderStroke(Dp(0.2f), Color.Green)
