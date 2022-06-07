@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:orientation="vertical"
+    android:layout_height="match_parent"
+    tools:context=".EnterMessageActivity">
+
+    <EditText
+        android:layout_marginTop="20dp"
+        android:id="@+id/message"
+        android:layout_width="match_parent"
+        android:layout_height="500dp"
+        android:textColor="@color/black"
+        android:padding="10dp"
+        android:scrollbarSize="2dp"
+        android:textSize="14sp"
+        android:layout_marginHorizontal="10dp"
+        android:gravity="start|top"
+        android:hint="Enter message to send"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:gravity="center"
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/set"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Set"/>
+
+        <Button
+            android:id="@+id/cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cancel"/>
+    </LinearLayout>
+
+</LinearLayout>
