@@ -29,7 +29,9 @@ import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.core.content.ContextCompat
 import com.example.whatsappcontacts.ui.theme.WhatsAppContactsTheme
@@ -154,9 +156,12 @@ class MainActivity : ComponentActivity() {
                                 val name: String = whatsAppContactCursor.getString(
                                     whatsAppContactCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
                                 )
-                                val number: String = whatsAppContactCursor.getString(
+                                var number: String = whatsAppContactCursor.getString(
                                     whatsAppContactCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
                                 )
+                                if (number[0] != '+') {
+                                    number = "+91$number";
+                                }
                                 whatsAppContactCursor.close()
 
 
@@ -184,6 +189,16 @@ class MainActivity : ComponentActivity() {
         save(contactsList)
         Log.i(TAG, " WhatsApp contact size :  " + contactsList.size)
         return contactsList
+    }
+
+    fun getRemovedContacts(): List<Contact> {
+        var tempList = sPref?.getString(DONE, "")
+        var doneList =
+            Gson().fromJson(tempList, Array<Contact>::class.java)?.toList()
+        if (doneList.isNullOrEmpty()) {
+            doneList = ArrayList<Contact>()
+        }
+        return doneList
     }
 
     fun sendMessage(number: String) {
@@ -232,8 +247,13 @@ fun main(activity: MainActivity) {
     var numState = remember {
         NumState()
     }
+    var showRemaining = remember {
+        mutableStateOf(true)
+    }
 
-    if(App.firstLaunch) {
+    var removedList = activity.getRemovedContacts()
+
+    if (App.firstLaunch) {
         CoroutineScope(Dispatchers.IO).launch {
             var list = activity.getContacts()
             contactsState.contacts.clear()
@@ -250,7 +270,7 @@ fun main(activity: MainActivity) {
                 .width(IntrinsicSize.Max)
         ) {
             Text(
-                style = TextStyle(fontSize = TextUnit(16f, TextUnitType.Sp)),
+                style = TextStyle(fontSize = TextUnit(16f, TextUnitType.Sp), fontWeight = FontWeight(700)),
                 modifier = Modifier
                     .padding(Dp(5f))
                     .align(alignment = Alignment.CenterVertically), text = "WhatsApp Contacts"
@@ -270,7 +290,8 @@ fun main(activity: MainActivity) {
                         .height(IntrinsicSize.Min), text = "Set\nMessage",
                     style = TextStyle(
                         color = Color.White,
-                        fontSize = TextUnit(12f, TextUnitType.Sp)
+                        fontSize = TextUnit(12f, TextUnitType.Sp),
+                        textAlign = TextAlign.Center
                     )
                 )
             }
@@ -284,9 +305,11 @@ fun main(activity: MainActivity) {
                     modifier = Modifier
                         .width(IntrinsicSize.Min)
                         .height(IntrinsicSize.Min), text = "Reset\nPosition",
+
                     style = TextStyle(
                         color = Color.White,
-                        fontSize = TextUnit(12f, TextUnitType.Sp)
+                        fontSize = TextUnit(12f, TextUnitType.Sp),
+                        textAlign = TextAlign.Center
                     )
                 )
             }
@@ -297,18 +320,36 @@ fun main(activity: MainActivity) {
             numState.num = contactsState.contacts.size
             Column() {
 
-                Text(
+                Row(
                     modifier = Modifier
                         .padding(2.dp)
-                        .align(CenterHorizontally),
-                    text = "${numState.num} Contacts"
-                )
+                        .align(CenterHorizontally)
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .padding(2.dp),
+                        text = "${numState.num} Contacts",
+                        style = TextStyle(fontSize = TextUnit(16f,TextUnitType.Sp), fontWeight = FontWeight(700))
+                    )
+                    Spacer(modifier = Modifier.padding(10.dp, 0.dp))
+                    Text(modifier = Modifier.padding(0.dp,3.dp,0.dp,0.dp), text = "Remaining", style = TextStyle(fontSize = TextUnit(14f,TextUnitType.Sp)))
+                    Switch(modifier = Modifier.padding(0.dp,3.dp,0.dp,0.dp), checked = !showRemaining.value, onCheckedChange = {
+                        showRemaining.value = !showRemaining.value
+                    })
+                    Text(modifier = Modifier.padding(0.dp,3.dp,0.dp,0.dp), text = "Removed", style = TextStyle(fontSize = TextUnit(14f,TextUnitType.Sp)))
+                }
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(Dp(10f))
                 ) {
-                    itemsIndexed(contactsState.contacts) { index, item ->
+                    var items: List<Contact>? = null
+                    if (showRemaining.value) {
+                        items = contactsState.contacts
+                    } else {
+                        items = removedList
+                    }
+                    itemsIndexed(items) { index, item ->
                         ContactItem(
                             name = item.name,
                             number = item.number,
@@ -328,7 +369,8 @@ fun main(activity: MainActivity) {
                                     .apply()
                                 sPref!!.edit().putInt(INDEX, index).apply()
                                 activity.sendMessage(item.number)
-                                contactsState.contacts.remove(item)
+                                if (showRemaining.value)
+                                    contactsState.contacts.remove(item)
                             }
                         )
                     }
@@ -341,9 +383,11 @@ fun main(activity: MainActivity) {
 }
 
 @Composable
-fun Loader(){
-    Column(modifier = Modifier
-        .fillMaxWidth()) {
+fun Loader() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
         Spacer(modifier = Modifier.height(200.dp))
         CircularProgressIndicator(
             modifier = Modifier
@@ -376,7 +420,7 @@ fun ContactItem(
                 .clickable { onClick() },
             shape = RoundedCornerShape(10.dp),
             elevation = Dp(5f),
-            border = BorderStroke(Dp(0.2f), Color.Green)
+            border = BorderStroke(Dp(0.5f), Color.Green)
         ) {
             Column(
                 modifier = Modifier
