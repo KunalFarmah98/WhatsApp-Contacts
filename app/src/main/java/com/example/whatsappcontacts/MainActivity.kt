@@ -290,9 +290,7 @@ fun main(activity: MainActivity) {
                 }
                 Spacer(modifier = Modifier.width(Dp(10f)))
                 Button(onClick = {
-                    sPref!!.edit().putString(DONE, "").apply()
-                    contactsState.contacts.clear()
-                    contactsState.contacts.addAll(activity.getContacts())
+                    sPref!!.edit().clear().apply()
                 }) {
                     Text(
                         modifier = Modifier
