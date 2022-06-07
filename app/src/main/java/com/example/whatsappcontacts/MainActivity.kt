@@ -233,10 +233,13 @@ fun main(activity: MainActivity) {
         NumState()
     }
 
-    CoroutineScope(Dispatchers.IO).launch {
-        var list = activity.getContacts()
-        contactsState.contacts.clear()
-        contactsState.contacts.addAll(list)
+    if(App.firstLaunch) {
+        CoroutineScope(Dispatchers.IO).launch {
+            var list = activity.getContacts()
+            contactsState.contacts.clear()
+            contactsState.contacts.addAll(list)
+            App.firstLaunch = false
+        }
     }
 
     Column() {
@@ -273,7 +276,9 @@ fun main(activity: MainActivity) {
             }
             Spacer(modifier = Modifier.width(Dp(10f)))
             Button(onClick = {
-                sPref!!.edit().clear().apply()
+                sPref!!.edit().putString(DONE, "").apply()
+                App.firstLaunch = true
+                contactsState.contacts.clear()
             }) {
                 Text(
                     modifier = Modifier
@@ -320,9 +325,10 @@ fun main(activity: MainActivity) {
                                 sPref!!
                                     .edit()
                                     .putString(DONE, Gson().toJson(doneList))
-                                    .commit()
+                                    .apply()
                                 sPref!!.edit().putInt(INDEX, index).apply()
                                 activity.sendMessage(item.number)
+                                contactsState.contacts.remove(item)
                             }
                         )
                     }
